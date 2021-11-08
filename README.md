@@ -1,4 +1,4 @@
-# 'Centered' Metropolis-Hastings Independence algorithm for Bayesian logistic regression
+# 'Centered' Metropolis-Hastings independence algorithm for Bayesian logistic regression
 
 A Python library for 'centered' Metropolis-Hastings using Pytorch for tensor computations. Install using PIP:
 
