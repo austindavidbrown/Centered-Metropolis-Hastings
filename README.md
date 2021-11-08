@@ -12,7 +12,7 @@ Here is a simple example:
 
 ```python
 import torch
-from cmhi import bayesian_logistic_regression
+from cmhi import BayesianLogisticRegression
 
 n_features = 100
 n_samples = 10
@@ -26,17 +26,20 @@ Y = torch.zeros(n_samples, dtype=torch.long)
 prob = torch.sigmoid(b_true + X @ theta_true)
 for i in range(0, Y.size(0)):
   Y[i] = torch.bernoulli(prob[i])
-  
-# Sample
-bias, thetas, accepts = bayesian_logistic_regression(X, Y, sigma2_prior = sigma2_prior, C = torch.eye(n_features),
-                                                     n_iterations = 10**4, h = .9 * sigma2_prior)
-  
+
+
+# CMHI Sampler
+bayesian_logistic_regression = BayesianLogisticRegression(X, Y, sigma2_prior,  
+                                                          C = torch.eye(n_features),
+                                                          h = .9 * sigma2_prior)
+bias, thetas, accepts = bayesian_logistic_regression.sample(n_iterations = 10**4)
+
+print("CMHI Sampler:")
+print("n accepts:", int(accepts.sum().item()))
 
 predictions = torch.round(torch.sigmoid(bias + X @ thetas.mean(0))).long()
-accuracy = 1/Y.size(0)*torch.sum(predictions == Y)
-
-print("n accepts:", int(accepts.sum().item()))
-print("accuracy:", accuracy.item())
+accuracy = 1/Y.size(0)*torch.sum(predictions == Y).item()
+print("accuracy:", accuracy)
 ```
 
 ## Citation
