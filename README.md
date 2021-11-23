@@ -28,7 +28,8 @@ for i in range(0, Y.size(0)):
   Y[i] = torch.bernoulli(prob[i])
 
 
-# Centered Metropolis-Hastings independence sampler
+# Centered Metropolis-Hastings independence sampler with Gaussian proposal
+# The covariance for the proposal can be tuned
 bayesian_logistic_regression = BayesianLogisticRegression(X, Y,  
                                                           Cov_prior = torch.eye(n_features),
                                                           Cov_proposal = .9 * torch.eye(n_features))
