@@ -151,11 +151,11 @@ n_features = 100
 n_samples = 10
 
 # Generate data
-b_true = 1
+bias_true = 1
 theta_true = torch.zeros(n_features).normal_(0, 1)
 X = torch.zeros(n_samples, n_features).uniform_(-1, 1)
 Y = torch.zeros(n_samples, dtype=torch.long)
-prob = torch.sigmoid(b_true + X @ theta_true)
+prob = torch.sigmoid(bias_true + X @ theta_true)
 for i in range(0, Y.size(0)):
   Y[i] = torch.bernoulli(prob[i])
 
