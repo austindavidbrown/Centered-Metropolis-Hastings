@@ -37,10 +37,6 @@ bias_mle, thetas, accepts = bayesian_logistic_regression.sample(n_iterations = 1
 
 print("The MLE is used for the bias:", bias_mle)
 print("Number of accepted samples from the proposal:", int(accepts.sum().item()))
-
-predictions = torch.round(torch.sigmoid(bias_mle + X @ thetas.mean(0))).long()
-accuracy = 1/Y.size(0)*torch.sum(predictions == Y).item()
-print("accuracy:", accuracy)
 ```
 
 ## Citation
