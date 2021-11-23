@@ -12,31 +12,33 @@ Here is a simple example:
 
 ```python
 import torch
-from cmhi import bayesian_logistic_regression
+from cmhi import BayesianLogisticRegression
 
 n_features = 100
 n_samples = 10
-sigma2_prior = 1
 
 # Generate data
 b_true = 1
-theta_true = torch.zeros(n_features).normal_(0, sigma2_prior**(1/2))
+theta_true = torch.zeros(n_features).normal_(0, 1)
 X = torch.zeros(n_samples, n_features).uniform_(-1, 1)
 Y = torch.zeros(n_samples, dtype=torch.long)
 prob = torch.sigmoid(b_true + X @ theta_true)
 for i in range(0, Y.size(0)):
   Y[i] = torch.bernoulli(prob[i])
-  
-# Sample
-bias, thetas, accepts = bayesian_logistic_regression(X, Y, sigma2_prior = sigma2_prior, C = torch.eye(n_features),
-                                                     n_iterations = 10**4, h = .9 * sigma2_prior)
-  
 
-predictions = torch.round(torch.sigmoid(bias + X @ thetas.mean(0))).long()
-accuracy = 1/Y.size(0)*torch.sum(predictions == Y)
 
-print("n accepts:", int(accepts.sum().item()))
-print("accuracy:", accuracy.item())
+# Centered Metropolis-Hastings independence sampler
+bayesian_logistic_regression = BayesianLogisticRegression(X, Y,  
+                                                          Cov_prior = torch.eye(n_features),
+                                                          Cov_proposal = .9 * torch.eye(n_features))
+bias_mle, thetas, accepts = bayesian_logistic_regression.sample(n_iterations = 10**4)
+
+print("The MLE is used for the bias:", bias_mle)
+print("Number of accepted samples from the proposal:", int(accepts.sum().item()))
+
+predictions = torch.round(torch.sigmoid(bias_mle + X @ thetas.mean(0))).long()
+accuracy = 1/Y.size(0)*torch.sum(predictions == Y).item()
+print("accuracy:", accuracy)
 ```
 
 ## Citation
