@@ -1,6 +1,6 @@
 # 'Centered' Metropolis-Hastings independence algorithm for Bayesian logistic regression with Gaussian priors
 
-A Python library for 'centered' Metropolis-Hastings using Pytorch for tensor computations. Install using PIP:
+A Python library for centered Metropolis-Hastings for Bayesian logistic regression with Gaussian priors. This library uses Pytorch for matrix calculations. Install using PIP:
 
 ```bash
 pip install cmhi
