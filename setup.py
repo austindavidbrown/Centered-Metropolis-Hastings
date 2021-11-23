@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 setup(
   name="cmhi", 
-  version="0.2",
+  version="0.3",
   author="Austin Brown",
   author_email="brow5079@umn.edu",
   description="Centered Metropolis-Hastings independence algorithm for Bayesian logistic regression",
