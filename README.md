@@ -24,7 +24,7 @@ theta_true = torch.zeros(n_features).normal_(0, 1)
 X = torch.zeros(n_samples, n_features).uniform_(-1, 1)
 Y = torch.zeros(n_samples, dtype=torch.long)
 prob = torch.sigmoid(bias_true + X @ theta_true)
-for i in range(0, Y.size(0)):
+for i in range(0, n_samples):
   Y[i] = torch.bernoulli(prob[i])
 
 
