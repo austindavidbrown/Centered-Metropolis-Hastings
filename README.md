@@ -11,28 +11,28 @@ pip install cmhi
 Here is a simple example:
 
 ```python
-
 import torch
 from cmhi import BayesianLogisticRegression
 
 n_features = 100
-n_samples = 10
+n_samples = 200
 
 # Generate data
 bias_true = 1
 theta_true = torch.zeros(n_features).normal_(0, 1)
-X = torch.zeros(n_samples, n_features).uniform_(-1, 1)
+X = torch.zeros(n_samples, n_features)
+for i in range(0, n_samples):
+  X[i, :] = 1/(n_features) * torch.zeros(n_features).uniform_(-1, 1)
 Y = torch.zeros(n_samples, dtype=torch.long)
 prob = torch.sigmoid(bias_true + X @ theta_true)
-for i in range(0, n_samples):
+for i in range(0, Y.size(0)):
   Y[i] = torch.bernoulli(prob[i])
 
 
-# Centered Metropolis-Hastings independence sampler with Gaussian proposal
-# The covariance for the proposal can be tuned
+# Centered Metropolis-Hastings independence sampler
 bayesian_logistic_regression = BayesianLogisticRegression(X, Y,  
-                                                          Cov_prior = torch.eye(n_features),
-                                                          Cov_proposal = .9 * torch.eye(n_features))
+                                                          Cov_prior = 100 * torch.eye(n_features),
+                                                          Cov_proposal = 100 * torch.eye(n_features))
 bias_mle, thetas, accepts = bayesian_logistic_regression.sample(n_iterations = 10**4)
 
 print("The MLE is used for the bias:", bias_mle)
