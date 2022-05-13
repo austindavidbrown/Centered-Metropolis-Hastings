@@ -5,8 +5,7 @@ class BayesianLogisticRegression:
   @staticmethod
   def graddescent(X, Y, Cov_prior, 
                   stepsize = .1, tol = 10**(-10), max_iterations = 10**5):
-    Cov_prior_half = torch.linalg.cholesky(Cov_prior)
-    Cov_prior_inv = torch.cholesky_inverse(Cov_prior_half)
+    Cov_prior_inv = torch.cholesky_inverse(torch.linalg.cholesky(Cov_prior))
     bceloss = torch.nn.BCEWithLogitsLoss(reduction="sum")
 
     b = torch.zeros(1)
@@ -58,17 +57,19 @@ class BayesianLogisticRegression:
     self.X = X
     self.Y = Y
 
-    self.Cov_prior_half = torch.linalg.cholesky(Cov_prior)
-    self.Cov_prior_inv = torch.cholesky_inverse(self.Cov_prior_half)
+    self.Cov_prior = Cov_prior
+    self.Cov_prior_inv = torch.cholesky_inverse(torch.linalg.cholesky(self.Cov_prior))
 
-    self.Cov_proposal_half = torch.linalg.cholesky(Cov_proposal)
-    self.Cov_proposal_inv = torch.cholesky_inverse(self.Cov_proposal_half)
+    self.Cov_proposal = Cov_proposal
+    self.Cov_proposal_inv = torch.cholesky_inverse(torch.linalg.cholesky(self.Cov_proposal))
 
     # Optimize target
     b_opt, theta_opt = BayesianLogisticRegression.graddescent(X, Y, Cov_prior,
                                                               stepsize_opt, tol_opt, max_iterations_opt)
     self.b_opt = b_opt
     self.theta_opt = theta_opt
+    self.grad_f_theta_opt = self.X.T @ (torch.sigmoid(self.b_opt + self.X @ self.theta_opt) - self.Y) \
+                            + self.Cov_prior_inv @ self.theta_opt
 
   # Generate samples
   # The bias or intercept term is not sampled but instead the MLE is used instead
@@ -80,22 +81,18 @@ class BayesianLogisticRegression:
 
     if theta_0 is None:
       theta_0 = self.theta_opt
-      f_proposal_theta = torch.zeros(1)
-    else:
-      f_proposal_theta = 1/(2.0) * (theta_0 - self.theta_opt) @ self.Cov_proposal_inv @ (theta_0 - self.theta_opt)
-
-    # Compute the previous theta using the opt
+    f_proposal_theta = 1/(2.0) * (theta_0 - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt) @ self.Cov_proposal_inv @ (theta_0 - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt)
     f_target_theta = bceloss(self.b_opt + self.X @ theta_0, self.Y.double()) \
                      + 1/(2.0) * theta_0 @ self.Cov_prior_inv @ theta_0
 
     thetas = torch.zeros(n_iterations, self.dimension)
     thetas[0] = theta_0
+    proposal = torch.distributions.MultivariateNormal(loc=self.theta_opt, covariance_matrix= self.Cov_proposal)
     for t in range(1, n_iterations):
-      xi = torch.zeros(self.theta_opt.size(0)).normal_(0, 1)
-      theta_new = self.theta_opt + self.Cov_proposal_half @ xi
+      theta_new = proposal.sample()
 
       # MH step
-      f_proposal_theta_new = 1/(2.0) * xi.pow(2).sum()
+      f_proposal_theta_new = 1/(2.0) * (theta_new - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt) @ self.Cov_proposal_inv @ (theta_new - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt)
       f_target_theta_new = bceloss(self.b_opt + self.X @ theta_new, self.Y.double()) \
                            + 1/(2.0) * theta_new @ self.Cov_prior_inv @ theta_new
       u_sample = torch.zeros(1).uniform_(0, 1)
@@ -112,48 +109,19 @@ class BayesianLogisticRegression:
 
     return self.b_opt, thetas, accepts
 
-  def sample_until_accept(self, theta_0 = None, max_iterations = 10**(5)):
-    bceloss = torch.nn.BCEWithLogitsLoss(reduction="sum")
-
-    if theta_0 is None:
-      theta_0 = self.theta_opt
-      f_proposal_theta = torch.zeros(1)
-    else:
-      f_proposal_theta = 1/(2.0) * (theta_0 - self.theta_opt) @ self.Cov_proposal_inv @ (theta_0 - self.theta_opt)
-
-    # Compute the previous theta using the opt
-    f_target_theta = bceloss(self.b_opt + self.X @ theta_0, self.Y.double()) \
-                     + 1/(2.0) * theta_0 @ self.Cov_prior_inv @ theta_0
-
-    for t in range(1, max_iterations):
-      xi = torch.zeros(self.theta_opt.size(0)).normal_(0, 1)
-      theta_new = self.theta_opt + self.Cov_proposal_half @ xi
-
-      # MH step
-      f_proposal_theta_new = 1/(2.0) * xi.pow(2).sum()
-      f_target_theta_new = bceloss(self.b_opt + self.X @ theta_new, self.Y.double()) \
-                           + 1/(2.0) * theta_new @ self.Cov_prior_inv @ theta_new
-      u_sample = torch.zeros(1).uniform_(0, 1)
-      if torch.log(u_sample) <= f_proposal_theta_new - f_target_theta_new + f_target_theta - f_proposal_theta:  
-        return self.b_opt, theta_new
-
-    raise Exception("Failed to accept from the proposal.")
-
-
 
 '''
 # Test example
 
-import torch
-from cmhi import BayesianLogisticRegression
-
 n_features = 100
-n_samples = 10
+n_samples = 200
 
 # Generate data
 bias_true = 1
-theta_true = torch.zeros(n_features).normal_(0, 1)
-X = torch.zeros(n_samples, n_features).uniform_(-1, 1)
+theta_true = torch.zeros(n_features).uniform_(-1, 1)
+X = torch.zeros(n_samples, n_features)
+for i in range(0, n_samples):
+  X[i, :] = 1/(n_features) * torch.zeros(n_features).uniform_(-1, 1)
 Y = torch.zeros(n_samples, dtype=torch.long)
 prob = torch.sigmoid(bias_true + X @ theta_true)
 for i in range(0, Y.size(0)):
@@ -162,14 +130,26 @@ for i in range(0, Y.size(0)):
 
 # Centered Metropolis-Hastings independence sampler
 bayesian_logistic_regression = BayesianLogisticRegression(X, Y,  
-                                                          Cov_prior = torch.eye(n_features),
-                                                          Cov_proposal = .9 * torch.eye(n_features))
+                                                          Cov_prior = 100 * torch.eye(n_features),
+                                                          Cov_proposal = 100 * torch.eye(n_features))
 bias_mle, thetas, accepts = bayesian_logistic_regression.sample(n_iterations = 10**4)
 
 print("The MLE is used for the bias:", bias_mle)
 print("Number of accepted samples from the proposal:", int(accepts.sum().item()))
 
-predictions = torch.round(torch.sigmoid(bias_mle + X @ thetas.mean(0))).long()
-accuracy = 1/Y.size(0)*torch.sum(predictions == Y).item()
+X_new = torch.zeros(n_samples, n_features)
+for i in range(0, n_samples):
+  X_new[i, :] = 1/(n_features) * torch.zeros(n_features).uniform_(-1, 1)
+Y_new = torch.zeros(n_samples, dtype=torch.long)
+prob = torch.sigmoid(bias_true + X_new @ theta_true)
+for i in range(0, Y_new.size(0)):
+  Y_new[i] = torch.bernoulli(prob[i])
+
+predictions = torch.round(torch.sigmoid(bias_mle + X_new @ thetas.mean(0))).long()
+accuracy = 1/Y_new.size(0)*torch.sum(predictions == Y_new).item()
 print("accuracy:", accuracy)
+
+predictions_max = torch.round(torch.sigmoid(bias_mle + X_new @ thetas[0])).long()
+accuracy_max = 1/Y_new.size(0)*torch.sum(predictions_max == Y_new).item()
+print("max accuracy:", accuracy_max)
 '''
