@@ -46,12 +46,10 @@ class BayesianLogisticRegression:
   # X : matrix of features
   # Y : vector of responses
   # Cov_prior : prior covariance matrix
-  # Cov_proposal : centered proposal covariance matrix
   # stepsize_opt : initial step size for gradient descent
   # tol_opt : gradient descent tolerance
   # max_iterations_opt : maximum iterations for gradient descent
   def __init__(self, X, Y, Cov_prior, 
-               Cov_proposal,
                stepsize_opt = .1, tol_opt = 10**(-10), max_iterations_opt = 10**5):
     self.dimension = X.size(1)
     self.X = X
@@ -60,8 +58,9 @@ class BayesianLogisticRegression:
     self.Cov_prior = Cov_prior
     self.Cov_prior_inv = torch.cholesky_inverse(torch.linalg.cholesky(self.Cov_prior))
 
-    self.Cov_proposal = Cov_proposal
-    self.Cov_proposal_inv = torch.cholesky_inverse(torch.linalg.cholesky(self.Cov_proposal))
+    self.Cov_proposal = Cov_prior
+    self.Cov_proposal_L = torch.linalg.cholesky(self.Cov_proposal)
+    self.Cov_proposal_inv = torch.cholesky_inverse(self.Cov_proposal_L)
 
     # Optimize target
     b_opt, theta_opt = BayesianLogisticRegression.graddescent(X, Y, Cov_prior,
@@ -81,18 +80,21 @@ class BayesianLogisticRegression:
 
     if theta_0 is None:
       theta_0 = self.theta_opt
-    f_proposal_theta = 1/(2.0) * (theta_0 - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt) @ self.Cov_proposal_inv @ (theta_0 - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt)
+
+    f_proposal_theta = 1/(2.0) * (theta_0 - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt) \
+                                  @ self.Cov_proposal_inv @ (theta_0 - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt)
     f_target_theta = bceloss(self.b_opt + self.X @ theta_0, self.Y.double()) \
                      + 1/(2.0) * theta_0 @ self.Cov_prior_inv @ theta_0
 
     thetas = torch.zeros(n_iterations, self.dimension)
     thetas[0] = theta_0
-    proposal = torch.distributions.MultivariateNormal(loc=self.theta_opt, covariance_matrix= self.Cov_proposal)
     for t in range(1, n_iterations):
-      theta_new = proposal.sample()
+      xi = torch.zeros(self.dimension).normal_(0, 1)
+      theta_new = self.theta_opt - self.Cov_proposal @ self.grad_f_theta_opt \
+                  + self.Cov_proposal_L @ xi
 
       # MH step
-      f_proposal_theta_new = 1/(2.0) * (theta_new - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt) @ self.Cov_proposal_inv @ (theta_new - self.theta_opt + self.Cov_proposal @ self.grad_f_theta_opt)
+      f_proposal_theta_new = 1/(2.0) * xi.pow(2).sum()
       f_target_theta_new = bceloss(self.b_opt + self.X @ theta_new, self.Y.double()) \
                            + 1/(2.0) * theta_new @ self.Cov_prior_inv @ theta_new
       u_sample = torch.zeros(1).uniform_(0, 1)
@@ -109,19 +111,17 @@ class BayesianLogisticRegression:
 
     return self.b_opt, thetas, accepts
 
-
 '''
-# Test example
 
-n_features = 100
-n_samples = 200
+# Test example
+torch.manual_seed(0)
+n_features = 10
+n_samples = 100
 
 # Generate data
 bias_true = 1
 theta_true = torch.zeros(n_features).uniform_(-1, 1)
-X = torch.zeros(n_samples, n_features)
-for i in range(0, n_samples):
-  X[i, :] = 1/(n_features) * torch.zeros(n_features).uniform_(-1, 1)
+X = n_samples**(-1/2) * torch.zeros(n_samples, n_features).uniform_(-1, 1)
 Y = torch.zeros(n_samples, dtype=torch.long)
 prob = torch.sigmoid(bias_true + X @ theta_true)
 for i in range(0, Y.size(0)):
@@ -129,9 +129,7 @@ for i in range(0, Y.size(0)):
 
 
 # Centered Metropolis-Hastings independence sampler
-bayesian_logistic_regression = BayesianLogisticRegression(X, Y,  
-                                                          Cov_prior = 100 * torch.eye(n_features),
-                                                          Cov_proposal = 100 * torch.eye(n_features))
+bayesian_logistic_regression = BayesianLogisticRegression(X, Y, Cov_prior = 10 * torch.eye(n_features))
 bias_mle, thetas, accepts = bayesian_logistic_regression.sample(n_iterations = 10**4)
 
 print("The MLE is used for the bias:", bias_mle)
