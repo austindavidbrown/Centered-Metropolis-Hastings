@@ -30,7 +30,7 @@ bayesian_logistic_regression = BayesianLogisticRegression(X, Y, Cov_prior = 10 *
 bias_mle, thetas, accepts = bayesian_logistic_regression.sample(n_iterations = 10**4)
 
 print("The MLE is used for the bias:", bias_mle)
-print("Number of accepted samples from the proposal:", int(accepts.sum().item()))
+print("Number of accepted samples from the proposal:", accepts.sum().item())
 ```
 
 ## Citation
