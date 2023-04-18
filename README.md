@@ -35,7 +35,14 @@ print("Number of accepted samples from the proposal:", accepts.sum().item())
 
 ## Citation
 
-https://arxiv.org/abs/2111.10406
+```
+@article{brown:jones:2024,
+    title={{Exact Convergence Analysis for Metropolis-Hastings Independence Samplers in Wasserstein Distances}}, 
+    author={\textbf{Austin Brown} and Galin Jones},
+    year={2024},
+    journal = {To appear Journal of Applied Probability 61.1}
+}
+```
 
 ## Authors
 
